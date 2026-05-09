@@ -4,6 +4,10 @@
   "description": "What you see is what you get — edit your markdown document in its fully rendered form and watch changes flow back to the source in real time.",
   "version": "0.0.1",
   "publisher": "local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Stevee-Harveyy/Markdown-Live.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -41,7 +45,7 @@
     "watch": "concurrently \"npm run watch:ext\" \"npm run watch:web\"",
     "test": "vitest run",
     "test:int": "node ./out/test/integration/runTests.js",
-    "package": "vsce package --no-dependencies",
+    "package": "npx @vscode/vsce package --no-dependencies",
     "prepackage": "npm run compile"
   },
   "dependencies": {

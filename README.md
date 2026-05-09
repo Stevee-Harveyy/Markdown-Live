@@ -1,6 +1,27 @@
 # Markdown Live
 
+[![GitHub Release](https://img.shields.io/github/v/release/Stevee-Harveyy/Markdown-Live?label=latest&color=blue)](https://github.com/Stevee-Harveyy/Markdown-Live/releases/latest)
+
 A VS Code extension that lets you edit `.md` files directly in the rendered view — no raw source required. What you see is what you get: type into headings, paragraphs, and lists, and your changes flow back to the markdown source in real time.
+
+---
+
+## Installation
+
+1. Go to the [latest release](https://github.com/Stevee-Harveyy/Markdown-Live/releases/latest) and download the `.vsix` file
+2. Open VS Code
+3. Open the Command Palette (`Ctrl+Shift+P`) → **Extensions: Install from VSIX…**
+4. Select the downloaded file
+
+Or from the terminal (replace the filename with the one you downloaded):
+
+```bash
+code --install-extension markdown-live-x.x.x.vsix
+```
+
+### Opening a file
+
+Once installed, opening any `.md` file will automatically use Markdown Live. To fall back to the raw text editor, right-click the file in the Explorer → **Open With… → Text Editor**.
 
 ---
 
@@ -10,27 +31,6 @@ A VS Code extension that lets you edit `.md` files directly in the rendered view
 - **Lossless round-trip** — changes are written back through ProseMirror → mdast → remark-stringify, never through HTML conversion
 - **VS Code native** — dirty indicator, Ctrl+S, and Ctrl+Z work exactly as expected
 - **Live sync** — external changes to the file (git pull, another editor) reload the view automatically
-
----
-
-## Installation
-
-### From a `.vsix` file
-
-1. Download `markdown-live-x.x.x.vsix` from the [Releases](../../releases) page
-2. Open VS Code
-3. Open the Command Palette (`Ctrl+Shift+P`) → **Extensions: Install from VSIX…**
-4. Select the downloaded file
-
-Or from the terminal:
-
-```bash
-code --install-extension markdown-live-x.x.x.vsix
-```
-
-### Opening a file
-
-Once installed, opening any `.md` file will automatically use Markdown Live. To fall back to the raw text editor, right-click the file in the Explorer → **Open With… → Text Editor**.
 
 ---
 
@@ -71,11 +71,21 @@ npm test            # Vitest unit + property tests
 npm run test:int    # VS Code integration tests
 ```
 
-### Package
+### Package locally
 
 ```bash
-npx @vscode/vsce package --no-dependencies --allow-missing-repository
+npm run package
 ```
+
+---
+
+## Releasing a new version
+
+1. Bump `version` in `package.json`
+2. Commit: `git commit -am "chore: bump to vX.Y.Z"`
+3. Tag and push: `git tag vX.Y.Z && git push origin main --tags`
+
+GitHub Actions builds the extension, packages the `.vsix`, and publishes it as a GitHub Release automatically.
 
 ---
 
