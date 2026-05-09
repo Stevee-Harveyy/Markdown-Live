@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { HostMessage, WebViewMessage } from './protocol';
+import type { EditorConfig, HostMessage, WebViewMessage } from './protocol';
 import { serializeToMarkdown } from './pipeline/serialize';
 
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
@@ -20,6 +20,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel: vscode.WebviewPanel,
     _token: vscode.CancellationToken
   ): Promise<void> {
+    const cfg = () => vscode.workspace.getConfiguration('markdownWysiwyg');
+
     webviewPanel.webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'out', 'webview')],
@@ -28,13 +30,19 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     let applyingEdit = false;
 
-    const platform = (): string =>
-      vscode.workspace.getConfiguration('markdownWysiwyg').get<string>('platform', 'gfm');
+    const buildInit = (): HostMessage => ({
+      type: 'init',
+      text: document.getText(),
+      platform: cfg().get<string>('platform', 'gfm'),
+      config: {
+        spellCheck: cfg().get<boolean>('spellCheck', false),
+        syncDelay: cfg().get<number>('syncDelay', 150),
+      },
+    });
 
     const msgSub = webviewPanel.webview.onDidReceiveMessage(async (msg: WebViewMessage) => {
       if (msg.type === 'ready') {
-        const init: HostMessage = { type: 'init', text: document.getText(), platform: platform() };
-        webviewPanel.webview.postMessage(init);
+        webviewPanel.webview.postMessage(buildInit());
         return;
       }
 
@@ -61,7 +69,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const changeSub = vscode.workspace.onDidChangeTextDocument(event => {
       if (event.document.uri.toString() !== document.uri.toString()) return;
       if (applyingEdit) return;
-      // External change — reload WebView content
       const update: HostMessage = { type: 'external_update', text: event.document.getText() };
       webviewPanel.webview.postMessage(update);
     });
@@ -73,6 +80,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   private buildHtml(webview: vscode.Webview): string {
+    const cfg = vscode.workspace.getConfiguration('markdownWysiwyg');
+    const maxWidth = cfg.get<string>('maxWidth', '860px');
+    const fontSize = cfg.get<string>('fontSize', 'inherit');
+    const lineHeight = cfg.get<number>('lineHeight', 1.6);
+
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'out', 'webview', 'main.js')
     );
@@ -85,24 +97,39 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Markdown Editor</title>
+  <title>Markdown Live</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 16px 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); }
-    .ProseMirror { outline: none; min-height: calc(100vh - 32px); }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: ${fontSize === 'inherit' ? 'var(--vscode-editor-font-size, 14px)' : fontSize};
+      line-height: ${lineHeight};
+      color: var(--vscode-editor-foreground);
+      background: var(--vscode-editor-background);
+    }
+    #root {
+      max-width: ${maxWidth === 'none' ? '100%' : maxWidth};
+      margin: 0 auto;
+    }
+    .ProseMirror { outline: none; min-height: calc(100vh - 48px); }
     .ProseMirror h1, .ProseMirror h2, .ProseMirror h3,
-    .ProseMirror h4, .ProseMirror h5, .ProseMirror h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+    .ProseMirror h4, .ProseMirror h5, .ProseMirror h6 { margin-top: 1.5em; margin-bottom: 0.5em; line-height: 1.3; }
+    .ProseMirror p { margin: 0 0 0.75em; }
     .ProseMirror pre { background: var(--vscode-textCodeBlock-background, #f6f8fa); padding: 12px 16px; border-radius: 6px; overflow-x: auto; }
-    .ProseMirror code { font-family: var(--vscode-editor-font-family, Consolas, monospace); font-size: 0.9em; }
+    .ProseMirror code { font-family: var(--vscode-editor-font-family, Consolas, monospace); font-size: 0.875em; background: var(--vscode-textCodeBlock-background, #f6f8fa); padding: 0.1em 0.3em; border-radius: 3px; }
     .ProseMirror pre code { background: none; padding: 0; }
     .ProseMirror table { border-collapse: collapse; width: 100%; margin: 1em 0; }
     .ProseMirror th, .ProseMirror td { border: 1px solid var(--vscode-panel-border, #d0d7de); padding: 6px 13px; }
     .ProseMirror th { background: var(--vscode-textCodeBlock-background, #f6f8fa); font-weight: 600; }
-    .ProseMirror blockquote { margin: 0; padding: 0 1em; border-left: 4px solid var(--vscode-panel-border, #d0d7de); opacity: 0.8; }
+    .ProseMirror blockquote { margin: 0 0 0.75em; padding: 0 1em; border-left: 4px solid var(--vscode-panel-border, #d0d7de); color: var(--vscode-descriptionForeground, #666); }
+    .ProseMirror ul, .ProseMirror ol { padding-left: 1.5em; margin: 0 0 0.75em; }
+    .ProseMirror li { margin: 0.25em 0; }
     .ProseMirror img { max-width: 100%; }
-    .ProseMirror hr { border: none; border-top: 1px solid var(--vscode-panel-border, #d0d7de); }
-    .ProseMirror a { color: var(--vscode-textLink-foreground, #0969da); }
-    .ProseMirror p.is-editor-empty:first-child::before { content: 'Start writing...'; color: var(--vscode-input-placeholderForeground, #999); pointer-events: none; float: left; height: 0; }
+    .ProseMirror hr { border: none; border-top: 1px solid var(--vscode-panel-border, #d0d7de); margin: 1.5em 0; }
+    .ProseMirror a { color: var(--vscode-textLink-foreground, #0969da); text-decoration: none; }
+    .ProseMirror a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>

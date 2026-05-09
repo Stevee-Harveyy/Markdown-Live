@@ -26,14 +26,43 @@
       }
     ],
     "configuration": {
-      "title": "Markdown WYSIWYG Editor",
+      "title": "Markdown Live",
       "properties": {
         "markdownWysiwyg.platform": {
           "type": "string",
           "default": "gfm",
           "enum": ["gfm"],
           "enumDescriptions": ["GitHub Flavored Markdown (CommonMark + GFM)"],
-          "description": "Markdown flavor to use for parsing and serialization. Additional presets (azure-devops, gitlab) added in Phase 4."
+          "markdownDescription": "Markdown flavor for parsing and serialization. Additional presets (`azure-devops`, `gitlab`) coming in Phase 3."
+        },
+        "markdownWysiwyg.syncDelay": {
+          "type": "number",
+          "default": 150,
+          "minimum": 50,
+          "maximum": 2000,
+          "markdownDescription": "Milliseconds to wait after the last keystroke before writing changes back to the source file. Lower = faster sync, higher = fewer disk writes."
+        },
+        "markdownWysiwyg.maxWidth": {
+          "type": "string",
+          "default": "860px",
+          "markdownDescription": "Maximum width of the editor content area. Any CSS length value works (`720px`, `90ch`, `100%`). Set to `none` for full width."
+        },
+        "markdownWysiwyg.spellCheck": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable browser spell checking in the editor."
+        },
+        "markdownWysiwyg.fontSize": {
+          "type": "string",
+          "default": "inherit",
+          "markdownDescription": "Font size for the rendered content, e.g. `16px` or `1.1rem`. `inherit` follows VS Code's editor font size."
+        },
+        "markdownWysiwyg.lineHeight": {
+          "type": "number",
+          "default": 1.6,
+          "minimum": 1.0,
+          "maximum": 3.0,
+          "description": "Line height multiplier for the rendered content."
         }
       }
     }

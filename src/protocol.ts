@@ -1,9 +1,12 @@
 // Shared message types for the host ↔ WebView postMessage bus.
-// Import with `import type` from both host and webview-src to keep the
-// bundle clean — these are erased at compile time.
+
+export type EditorConfig = {
+  spellCheck: boolean;
+  syncDelay: number;
+};
 
 export type HostMessage =
-  | { type: 'init'; text: string; platform: string }
+  | { type: 'init'; text: string; platform: string; config: EditorConfig }
   | { type: 'external_update'; text: string };
 
 export type WebViewMessage =
