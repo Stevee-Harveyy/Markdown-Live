@@ -1,0 +1,10 @@
+node_modules/
+out/
+*.vsix
+.env
+
+# Local project scaffolding — stays off the public repo
+CLAUDE.md
+tasks.md
+architecture.md
+.claude/

@@ -1,0 +1,16 @@
+.vscode/
+.claude/
+src/
+webview-src/
+test/
+node_modules/
+out/**/*.map
+*.config.ts
+*.config.js
+esbuild.js
+tsconfig*.json
+CLAUDE.md
+architecture.md
+tasks.md
+.gitignore
+.gitattributes

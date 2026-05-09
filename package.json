@@ -1,0 +1,86 @@
+{
+  "name": "markdown-live",
+  "displayName": "Markdown Live",
+  "description": "What you see is what you get — edit your markdown document in its fully rendered form and watch changes flow back to the source in real time.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Editors"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "markdownWysiwyg.editor",
+        "displayName": "Markdown Live",
+        "selector": [
+          { "filenamePattern": "*.md" }
+        ],
+        "priority": "default"
+      }
+    ],
+    "configuration": {
+      "title": "Markdown WYSIWYG Editor",
+      "properties": {
+        "markdownWysiwyg.platform": {
+          "type": "string",
+          "default": "gfm",
+          "enum": ["gfm"],
+          "enumDescriptions": ["GitHub Flavored Markdown (CommonMark + GFM)"],
+          "description": "Markdown flavor to use for parsing and serialization. Additional presets (azure-devops, gitlab) added in Phase 4."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js && vite build --config vite.config.ts",
+    "watch:ext": "node esbuild.js --watch",
+    "watch:web": "vite build --config vite.config.ts --watch",
+    "watch": "concurrently \"npm run watch:ext\" \"npm run watch:web\"",
+    "test": "vitest run",
+    "test:int": "node ./out/test/integration/runTests.js",
+    "package": "vsce package --no-dependencies",
+    "prepackage": "npm run compile"
+  },
+  "dependencies": {
+    "@tiptap/extension-link": "^2.4.0",
+    "@tiptap/react": "^2.4.0",
+    "@tiptap/core": "^2.4.0",
+    "@tiptap/extension-code-block-lowlight": "^2.4.0",
+    "@tiptap/extension-table": "^2.4.0",
+    "@tiptap/extension-table-cell": "^2.4.0",
+    "@tiptap/extension-table-header": "^2.4.0",
+    "@tiptap/extension-table-row": "^2.4.0",
+    "@tiptap/extension-task-item": "^2.4.0",
+    "@tiptap/extension-task-list": "^2.4.0",
+    "@tiptap/pm": "^2.4.0",
+    "@tiptap/starter-kit": "^2.4.0",
+    "lowlight": "^3.1.0",
+    "prosemirror-markdown": "^1.13.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "rehype-stringify": "^10.0.0",
+    "remark": "^15.0.0",
+    "remark-gfm": "^4.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "unified": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/vscode": "^1.85.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "@vscode/test-electron": "^2.4.0",
+    "concurrently": "^9.0.0",
+    "esbuild": "^0.21.0",
+    "fast-check": "^3.19.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
