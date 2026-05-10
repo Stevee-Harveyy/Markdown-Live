@@ -1,35 +1,39 @@
 # Markdown Live
 
-[![GitHub Release](https://img.shields.io/github/v/release/Stevee-Harveyy/Markdown-Live?label=latest&color=blue)](https://github.com/Stevee-Harveyy/Markdown-Live/releases/latest)
+![demo](media/demo.gif)
 
 **Edit markdown the way it looks, not the way it's written.**
 
-Markdown Live opens `.md` files directly in their rendered form. Type into headings, paragraphs, lists, and links — your changes write back to the markdown source in real time. No toggling between source and preview, no raw syntax in sight.
+Markdown Live opens `.md` files directly in their rendered form. Type into headings, paragraphs, lists, tables, and links — your changes write back to the markdown source in real time. No toggling between source and preview, no raw syntax in sight.
 
----
+***
 
 ## Getting started
 
 1. Download `markdown-live-x.x.x.vsix` from the [latest release](https://github.com/Stevee-Harveyy/Markdown-Live/releases/latest)
-2. In VS Code: **Extensions** (`Ctrl+Shift+X`) → **`···`** menu → **Install from VSIX…**
-3. Open any `.md` file — Markdown Live loads automatically
+1. In VS Code: **Extensions** (`Ctrl+Shift+X`) → `···` menu → **Install from VSIX…**
+1. Open any `.md` file — Markdown Live loads automatically
 
 Or via terminal:
+
 ```bash
 code --install-extension markdown-live-x.x.x.vsix
 ```
+
 > **Note:** The `code` command must be in your PATH. In VS Code, run **Shell Command: Install 'code' command in PATH** from the Command Palette if needed.
 
----
+***
 
 ## Features
 
 - **True WYSIWYG** — write in rendered markdown; never look at raw syntax
+- **Full GFM support** — tables, task lists (toggle checkboxes directly), strikethrough, fenced code blocks with language
 - **Lossless round-trip** — edits travel through ProseMirror → mdast → remark-stringify, not through HTML conversion, so nothing is lost or reformatted unexpectedly
-- **Feels like a normal editor** — dirty indicator, Ctrl+S, Ctrl+Z, and multi-cursor all work as expected
-- **Live reload** — external changes to the file (git pull, another tool writing to it) update the view automatically
+- **Frontmatter preserved** — YAML front matter and raw HTML blocks display as read-only monospace blocks and survive every edit untouched
+- **External change handling** — if the file changes externally (git pull, another tool) while you have local edits, a banner lets you choose: **Keep mine** or **Accept theirs**
+- **Feels like a normal editor** — dirty indicator, Ctrl+S, Ctrl+Z, and file-lifecycle all handled by VS Code's `CustomTextEditor` API
 
----
+***
 
 ## Settings
 
@@ -37,24 +41,24 @@ All settings are under **Extensions → Markdown Live** in VS Code Settings (`Ct
 
 ### Editor behaviour
 
-| Setting | Type | Default | Description |
-|---|---|---|---|
-| `markdownWysiwyg.syncDelay` | number | `150` | Milliseconds to wait after the last keystroke before writing changes back to the source file. Lower values sync faster; higher values reduce disk writes during fast typing. |
-| `markdownWysiwyg.spellCheck` | boolean | `false` | Enable browser spell checking in the editor. Underlines misspelled words using the OS dictionary. |
+| Setting | Default | Description |
+|---|---|---|
+| `markdownWysiwyg.syncDelay` | `150` | Milliseconds to wait after the last keystroke before writing back to the source file. Lower = faster sync. |
+| `markdownWysiwyg.spellCheck` | `false` | Enable browser spell checking inside the editor. |
 
 ### Appearance
 
-| Setting | Type | Default | Description |
-|---|---|---|---|
-| `markdownWysiwyg.maxWidth` | string | `"860px"` | Maximum width of the content area. Accepts any CSS length — `720px`, `90ch`, `100%`. Set to `none` for full width. |
-| `markdownWysiwyg.fontSize` | string | `"inherit"` | Font size for rendered content, e.g. `16px` or `1.1rem`. `inherit` follows VS Code's editor font size setting. |
-| `markdownWysiwyg.lineHeight` | number | `1.6` | Line height multiplier. Useful for adjusting reading comfort. Valid range: `1.0` – `3.0`. |
+| Setting | Default | Description |
+|---|---|---|
+| `markdownWysiwyg.maxWidth` | `"860px"` | Maximum width of the content area. Any CSS length (`720px`, `90ch`, `100%`, `none`). |
+| `markdownWysiwyg.fontSize` | `"inherit"` | Font size for rendered content, e.g. `16px` or `1.1rem`. `inherit` follows VS Code's editor font size. |
+| `markdownWysiwyg.lineHeight` | `1.6` | Line-height multiplier (1.0–3.0). |
 
 ### Markdown flavour
 
-| Setting | Type | Default | Description |
+| Setting | Default | Options | Description |
 |---|---|---|---|
-| `markdownWysiwyg.platform` | string | `"gfm"` | Markdown flavour for parsing and serialization. Currently `gfm` (GitHub Flavored Markdown). Additional presets — `azure-devops`, `gitlab` — are in development. |
+| `markdownWysiwyg.platform` | `"gfm"` | `gfm` | Markdown dialect for parsing and serialization. GitHub Flavored Markdown is the default; additional presets (Azure DevOps, GitLab) are planned for Phase 4. |
 
 ### Example `settings.json`
 
@@ -68,7 +72,7 @@ All settings are under **Extensions → Markdown Live** in VS Code Settings (`Ct
 }
 ```
 
----
+***
 
 ## Switching editors
 
@@ -88,7 +92,7 @@ To permanently change which editor opens `.md` files by default, add this to you
 }
 ```
 
----
+***
 
 ## Contributing
 
@@ -124,28 +128,28 @@ npm run package       # build and package as .vsix
 ### Releasing
 
 1. Bump `version` in `package.json`
-2. `git commit -am "chore: vX.Y.Z"`
-3. `git tag vX.Y.Z && git push origin main --tags`
+1. `git commit -am "chore: vX.Y.Z"`
+1. `git tag vX.Y.Z && git push origin main --tags`
 
 GitHub Actions builds the `.vsix` and publishes a GitHub Release automatically.
 
----
+***
 
 ## How it works
 
 Markdown Live uses VS Code's `CustomTextEditor` API, which means VS Code itself manages the file lifecycle — dirty state, save, undo/redo, conflict detection — with no custom implementation needed.
 
 ```
-.md  ──remark-parse──▶  mdast  ──mdastToTiptap──▶  TipTap editor
-                                                          │
-                                                  edit (150 ms debounce)
-                                                          │
-.md  ◀──remark-stringify──  mdast  ◀──serialize──  TipTap JSON
+.md  ──remark-parse (GFM preset)──▶  mdast  ──mdastToTiptap──▶  TipTap editor
+                                                                       │
+                                                               edit (debounced)
+                                                                       │
+.md  ◀──remark-stringify (GFM preset)──  mdast  ◀──serialize──  TipTap JSON
 ```
 
-The WebView and extension host communicate over a typed message bus ([`src/protocol.ts`](src/protocol.ts)).
+The WebView and extension host communicate over a typed message bus (`src/protocol.ts`). The pipeline is driven by a **platform preset** (`PlatformPreset` interface) — swapping to a new markdown flavour means writing a new preset file, nothing else.
 
----
+***
 
 ## License
 
