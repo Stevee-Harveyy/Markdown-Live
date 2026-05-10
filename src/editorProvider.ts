@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { EditorConfig, HostMessage, WebViewMessage } from './protocol';
 import { serializeToMarkdown } from './pipeline/serialize';
+import { resolvePreset } from './pipeline/presets/index';
 
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   static readonly viewType = 'markdownWysiwyg.editor';
@@ -30,15 +31,18 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     let applyingEdit = false;
 
-    const buildInit = (): HostMessage => ({
-      type: 'init',
-      text: document.getText(),
-      platform: cfg().get<string>('platform', 'gfm'),
-      config: {
-        spellCheck: cfg().get<boolean>('spellCheck', false),
-        syncDelay: cfg().get<number>('syncDelay', 150),
-      },
-    });
+    const buildInit = (): HostMessage => {
+      const platformId = cfg().get<string>('platform', 'gfm');
+      return {
+        type: 'init',
+        text: document.getText(),
+        platform: platformId,
+        config: {
+          spellCheck: cfg().get<boolean>('spellCheck', false),
+          syncDelay: cfg().get<number>('syncDelay', 150),
+        },
+      };
+    };
 
     const msgSub = webviewPanel.webview.onDidReceiveMessage(async (msg: WebViewMessage) => {
       if (msg.type === 'ready') {
@@ -47,9 +51,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
 
       if (msg.type === 'transaction') {
+        const platformId = cfg().get<string>('platform', 'gfm');
+        const preset = resolvePreset(platformId);
         let markdown: string;
         try {
-          markdown = serializeToMarkdown(msg.doc as Parameters<typeof serializeToMarkdown>[0]);
+          markdown = serializeToMarkdown(msg.doc as Parameters<typeof serializeToMarkdown>[0], preset);
         } catch {
           return;
         }
@@ -69,6 +75,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const changeSub = vscode.workspace.onDidChangeTextDocument(event => {
       if (event.document.uri.toString() !== document.uri.toString()) return;
       if (applyingEdit) return;
+      // External change — push updated text to WebView for reconciliation
       const update: HostMessage = { type: 'external_update', text: event.document.getText() };
       webviewPanel.webview.postMessage(update);
     });
@@ -121,7 +128,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     .ProseMirror code { font-family: var(--vscode-editor-font-family, Consolas, monospace); font-size: 0.875em; background: var(--vscode-textCodeBlock-background, #f6f8fa); padding: 0.1em 0.3em; border-radius: 3px; }
     .ProseMirror pre code { background: none; padding: 0; }
     .ProseMirror table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-    .ProseMirror th, .ProseMirror td { border: 1px solid var(--vscode-panel-border, #d0d7de); padding: 6px 13px; }
+    .ProseMirror th, .ProseMirror td { border: 1px solid var(--vscode-panel-border, #d0d7de); padding: 6px 13px; text-align: left; }
     .ProseMirror th { background: var(--vscode-textCodeBlock-background, #f6f8fa); font-weight: 600; }
     .ProseMirror blockquote { margin: 0 0 0.75em; padding: 0 1em; border-left: 4px solid var(--vscode-panel-border, #d0d7de); color: var(--vscode-descriptionForeground, #666); }
     .ProseMirror ul, .ProseMirror ol { padding-left: 1.5em; margin: 0 0 0.75em; }
@@ -130,6 +137,40 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     .ProseMirror hr { border: none; border-top: 1px solid var(--vscode-panel-border, #d0d7de); margin: 1.5em 0; }
     .ProseMirror a { color: var(--vscode-textLink-foreground, #0969da); text-decoration: none; }
     .ProseMirror a:hover { text-decoration: underline; }
+    /* Task list checkboxes */
+    ul[data-type="taskList"] { list-style: none; padding-left: 0.25em; }
+    ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5em; }
+    ul[data-type="taskList"] li > label { margin-top: 0.1em; cursor: pointer; }
+    ul[data-type="taskList"] li > div { flex: 1; }
+    /* Strikethrough */
+    s { opacity: 0.6; }
+    /* Raw block (frontmatter / HTML passthrough) */
+    .raw-block {
+      font-family: var(--vscode-editor-font-family, Consolas, monospace);
+      font-size: 0.875em;
+      background: var(--vscode-textCodeBlock-background, #f6f8fa);
+      border: 1px dashed var(--vscode-panel-border, #d0d7de);
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin: 0.75em 0;
+      white-space: pre-wrap;
+      user-select: text;
+      color: var(--vscode-descriptionForeground, #666);
+    }
+    /* External-change banner */
+    #ext-change-banner {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: var(--vscode-editorWarning-foreground, #e2a93e);
+      color: #000;
+      padding: 6px 16px;
+      display: flex; align-items: center; gap: 12px;
+      font-size: 0.85em;
+      z-index: 100;
+    }
+    #ext-change-banner button {
+      padding: 2px 10px; border: 1px solid rgba(0,0,0,0.25); border-radius: 3px;
+      background: rgba(255,255,255,0.3); cursor: pointer; font-size: 0.9em;
+    }
   </style>
 </head>
 <body>

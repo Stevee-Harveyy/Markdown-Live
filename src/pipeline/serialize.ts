@@ -1,6 +1,7 @@
 import { unified } from 'unified';
 import remarkStringify from 'remark-stringify';
-import type { Root, BlockContent, PhrasingContent, ListItem } from 'mdast';
+import type { Root, BlockContent, PhrasingContent, ListItem, TableRow, TableCell } from 'mdast';
+import type { PlatformPreset } from './presets/types';
 
 type Mark = { type: string; attrs?: Record<string, unknown> };
 type PmNode = {
@@ -11,20 +12,13 @@ type PmNode = {
   content?: PmNode[];
 };
 
-export function serializeToMarkdown(doc: PmNode): string {
+export function serializeToMarkdown(doc: PmNode, preset: PlatformPreset): string {
   const root = docToMdast(doc);
-  return String(
-    unified()
-      .use(remarkStringify, {
-        bullet: '-',
-        emphasis: '*',
-        strong: '*',
-        fence: '`',
-        fences: true,
-        incrementListMarker: false,
-      } as Parameters<typeof remarkStringify>[0])
-      .stringify(root)
-  );
+  const processor = unified().use(remarkStringify, preset.stringifyOptions as Parameters<typeof remarkStringify>[0]);
+  for (const plugin of preset.remarkPlugins) {
+    (processor as any).use(plugin);
+  }
+  return String(processor.stringify(root));
 }
 
 function docToMdast(doc: PmNode): Root {
@@ -35,18 +29,31 @@ function blockToMdast(node: PmNode): BlockContent {
   switch (node.type) {
     case 'paragraph':
       return { type: 'paragraph', children: inlineContent(node.content ?? []) };
+
     case 'heading':
       return { type: 'heading', depth: (node.attrs?.level as 1|2|3|4|5|6) ?? 1, children: inlineContent(node.content ?? []) };
+
     case 'bulletList':
       return { type: 'list', ordered: false, spread: false, children: (node.content ?? []).map(listItem) };
+
     case 'orderedList':
       return { type: 'list', ordered: true, spread: false, children: (node.content ?? []).map(listItem) };
+
+    case 'taskList':
+      return { type: 'list', ordered: false, spread: false, children: (node.content ?? []).map(taskItem) };
+
     case 'blockquote':
       return { type: 'blockquote', children: (node.content ?? []).map(blockToMdast) };
+
     case 'codeBlock':
       return { type: 'code', lang: (node.attrs?.language as string) || null, value: rawText(node.content ?? []) };
+
     case 'horizontalRule':
       return { type: 'thematicBreak' };
+
+    case 'table':
+      return tableToMdast(node);
+
     default:
       return { type: 'paragraph', children: [{ type: 'text', value: `[unknown:${node.type}]` }] };
   }
@@ -56,13 +63,29 @@ function listItem(node: PmNode): ListItem {
   return { type: 'listItem', spread: false, children: (node.content ?? []).map(blockToMdast) };
 }
 
+function taskItem(node: PmNode): ListItem {
+  const checked = (node.attrs?.checked as boolean) ?? false;
+  return { type: 'listItem', spread: false, checked, children: (node.content ?? []).map(blockToMdast) };
+}
+
+function tableToMdast(node: PmNode): BlockContent {
+  const rows = node.content ?? [];
+  const mdastRows: TableRow[] = rows.map(row => {
+    const cells: TableCell[] = (row.content ?? []).map(cell => ({
+      type: 'tableCell' as const,
+      children: inlineContent(cell.content ?? []),
+    }));
+    return { type: 'tableRow', children: cells };
+  });
+  return { type: 'table', align: [], children: mdastRows };
+}
+
 function rawText(nodes: PmNode[]): string {
   return nodes.map(n => n.text ?? rawText(n.content ?? [])).join('');
 }
 
 function inlineContent(nodes: PmNode[]): PhrasingContent[] {
-  const flat = nodes.flatMap(textToMdast);
-  return mergeAdjacent(flat);
+  return mergeAdjacent(nodes.flatMap(textToMdast));
 }
 
 function textToMdast(node: PmNode): PhrasingContent[] {
@@ -72,7 +95,6 @@ function textToMdast(node: PmNode): PhrasingContent[] {
   const text = node.text ?? '';
   const marks = node.marks ?? [];
 
-  // Inline code — takes full precedence, no nesting allowed
   if (marks.some(m => m.type === 'code')) return [{ type: 'inlineCode', value: text }];
 
   const linkMark = marks.find(m => m.type === 'link');
@@ -80,11 +102,12 @@ function textToMdast(node: PmNode): PhrasingContent[] {
 
   let leaf: PhrasingContent = { type: 'text', value: text };
 
-  // Apply bold / italic inside-out (italic inner, bold outer)
-  const sorted = [...rest].sort((a, b) => ['italic', 'bold'].indexOf(a.type) - ['italic', 'bold'].indexOf(b.type));
+  const priority = ['strike', 'italic', 'bold'];
+  const sorted = [...rest].sort((a, b) => priority.indexOf(a.type) - priority.indexOf(b.type));
   for (const mark of sorted) {
     if (mark.type === 'bold') leaf = { type: 'strong', children: [leaf] };
     else if (mark.type === 'italic') leaf = { type: 'emphasis', children: [leaf] };
+    else if (mark.type === 'strike') leaf = { type: 'delete', children: [leaf] };
   }
 
   if (linkMark) {
@@ -103,7 +126,11 @@ function mergeAdjacent(nodes: PhrasingContent[]): PhrasingContent[] {
   const out: PhrasingContent[] = [];
   for (const node of nodes) {
     const prev = out[out.length - 1];
-    if (prev && prev.type === node.type && (node.type === 'strong' || node.type === 'emphasis') && 'children' in prev && 'children' in node) {
+    if (
+      prev && prev.type === node.type &&
+      (node.type === 'strong' || node.type === 'emphasis') &&
+      'children' in prev && 'children' in node
+    ) {
       (prev as { children: PhrasingContent[] }).children.push(...(node as { children: PhrasingContent[] }).children);
     } else {
       out.push(node);
