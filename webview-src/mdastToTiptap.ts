@@ -23,9 +23,13 @@ function blockToTiptap(node: Content): TiptapNode[] {
       return [{ type: 'heading', attrs: { level: node.depth }, content: phrasingToTiptap(node.children) }];
 
     case 'list': {
-      const isTaskList = node.children.some(
-        item => (item as any).checked !== null && (item as any).checked !== undefined
-      );
+      // GFM task lists: checked is true/false. Also treat items whose text
+      // starts with [~] or [!] (in-progress / blocked markers) as task items.
+      const isTaskList = node.children.some(item => {
+        const c = (item as any).checked;
+        if (c !== null && c !== undefined) return true;
+        return looksLikeCustomTaskItem(item as any);
+      });
       if (isTaskList) {
         return [{ type: 'taskList', content: node.children.map(item => taskItemToTiptap(item as any)) }];
       }
@@ -76,18 +80,45 @@ function tableRowToTiptap(row: RowContent, isHeader: boolean): TiptapNode {
   };
 }
 
+// Detects items like "- [~] In progress" or "- [!] Blocked" that remark
+// parses as plain list items (checked: null) with a leading [~/!] text token.
+function looksLikeCustomTaskItem(node: any): boolean {
+  const firstChild = node.children?.[0];
+  if (firstChild?.type !== 'paragraph') return false;
+  const firstText = firstChild.children?.[0];
+  return firstText?.type === 'text' && /^\[~\]|\[!\]/.test(firstText.value);
+}
+
 function listItemToTiptap(node: ListContent): TiptapNode {
   return { type: 'listItem', content: (node as any).children.flatMap(blockToTiptap) };
 }
 
 function taskItemToTiptap(node: any): TiptapNode {
-  const inner: TiptapNode[] = node.children.flatMap((child: Content) => {
+  let checked = node.checked === true;
+  let children = node.children as Content[];
+
+  // Handle [~] / [!] items: strip the prefix token, treat as unchecked
+  if (node.checked === null || node.checked === undefined) {
+    const firstPara = children[0] as any;
+    if (firstPara?.type === 'paragraph') {
+      const firstText = firstPara.children?.[0];
+      if (firstText?.type === 'text' && /^\[~\] |^\[!\] /.test(firstText.value)) {
+        // Strip the "[~] " / "[!] " prefix from the text node
+        const stripped = { ...firstText, value: firstText.value.replace(/^\[~\] |^\[!\] /, '') };
+        const newPara = { ...firstPara, children: [stripped, ...firstPara.children.slice(1)] };
+        children = [newPara, ...children.slice(1)];
+        checked = false;
+      }
+    }
+  }
+
+  const inner: TiptapNode[] = children.flatMap((child: Content) => {
     if (child.type === 'paragraph') {
       return [{ type: 'paragraph', content: phrasingToTiptap((child as any).children) }];
     }
     return blockToTiptap(child);
   });
-  return { type: 'taskItem', attrs: { checked: node.checked === true }, content: inner };
+  return { type: 'taskItem', attrs: { checked }, content: inner };
 }
 
 function phrasingToTiptap(nodes: PhrasingContent[]): TiptapNode[] {
